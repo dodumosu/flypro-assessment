@@ -136,7 +136,7 @@ func createLogger(cfg LogConfig) *slog.Logger {
 }
 
 func GetRootLogger(cfg LogConfig) *slog.Logger {
-	onceLoad.Do(func() {
+	loggerLoad.Do(func() {
 		rootLogger = createLogger(cfg)
 	})
 
@@ -146,11 +146,12 @@ func GetRootLogger(cfg LogConfig) *slog.Logger {
 // global settings instance
 var settings Settings
 
-// ensure that settings are loaded once
-var onceLoad sync.Once
+// ensure that settings and logger are loaded/created once
+var settingsLoad sync.Once
+var loggerLoad sync.Once
 
 func LoadConfig(paths ...string) (err error) {
-	onceLoad.Do(func() {
+	settingsLoad.Do(func() {
 		for _, path := range paths {
 			if path == "" {
 				continue

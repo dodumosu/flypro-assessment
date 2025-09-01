@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"flypro-assessment/internal/config"
+	"flypro-assessment/internal/handlers"
 
 	_ "github.com/joho/godotenv/autoload"
 )
@@ -19,18 +20,20 @@ import (
 type APIServer struct {
 	configuration config.ServerConfig
 	server        *http.Server
+	logger        *slog.Logger
 }
 
-func NewAPIServer(cfg config.ServerConfig) (*APIServer, error) {
+func NewAPIServer(cfg config.ServerConfig, parentLogger *slog.Logger) (*APIServer, error) {
 	return &APIServer{
 		configuration: cfg,
+		logger:        parentLogger.With("source", "server"),
 		server:        &http.Server{},
 	}, nil
 }
 
 func (s *APIServer) cleanup() {
 	// cleanup hook
-	fmt.Printf("cleaning up resources\n")
+	s.logger.Info("cleaning up resources")
 }
 
 func (s *APIServer) Start() {
@@ -41,7 +44,7 @@ func (s *APIServer) Start() {
 	serverErrors := make(chan error, 1)
 
 	go func() {
-		fmt.Printf("Starting HTTP server on: %v\n", address)
+		s.logger.Info("Starting HTTP server", "address", address)
 		serverErrors <- s.server.ListenAndServe()
 	}()
 
@@ -50,27 +53,38 @@ func (s *APIServer) Start() {
 
 	select {
 	case err := <-serverErrors:
-		fmt.Printf("Server error: %v\n", err)
+		s.logger.Error("Server error", "error", err)
 		os.Exit(1)
 	case sig := <-shutdown:
-		fmt.Printf("Received signal: %v, message: %s\n", sig, "Starting graceful shutdown...")
+		s.logger.Info("Received signal, starting graceful shutdown", "signal", sig)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		if err := s.server.Shutdown(ctx); err != nil {
-			fmt.Printf("Server shutdown failed: %v\n", err)
+			s.logger.Error("Server shutdown failed", "error", err)
 		} else {
-			fmt.Printf("Server gracefully stopped\n")
+			s.logger.Info("Server gracefully stopped")
 		}
 
 		s.cleanup()
 	}
 }
 
+func (s *APIServer) SetupHandler(handler http.Handler) {
+	s.server.Handler = handler
+}
+
 func main() {
 	settings := config.GetSettings()
-	apiServer, err := NewAPIServer(settings.Server)
+	rootLogger := config.GetRootLogger(settings.Logging)
+
+	apiServer, err := NewAPIServer(settings.Server, rootLogger)
+	routerHandler := handlers.NewRouteHandler(rootLogger)
+
+	// TODO: would it be better to inject it to server creation?
+	apiServer.SetupHandler(routerHandler.SetupRoutes())
+
 	if err != nil {
 		panic(err)
 	}

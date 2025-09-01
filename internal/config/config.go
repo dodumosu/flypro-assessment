@@ -2,13 +2,38 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"sync"
 
 	"github.com/caarlos0/env/v11"
+	"github.com/charmbracelet/log"
 	"github.com/joho/godotenv"
 )
+
+type APIConfig struct {
+	// description for OpenAPI docs
+	Description string `env:"API_DESCRIPTION" envDefault:"App"`
+	// default list size
+	ListSize int `env:"API_LIST_SIZE" envDefault:"50"`
+	// version string for OpenAPI docs
+	Version string `env:"API_VERSION" envDefault:"1.0.0"`
+}
+
+type LogStyle string
+
+const (
+	ColouredLogStyle LogStyle = "colour"
+	JSONLogStyle     LogStyle = "json"
+	PlainLogStyle    LogStyle = "plain"
+)
+
+// logging config
+type LogConfig struct {
+	LogLevel string   `env:"LOG_LEVEL" envDefault:"info"`
+	Style    LogStyle `env:"LOG_STYLE" envDefault:"json"`
+}
 
 // exchange rates API configuration
 type RateAPIConfig struct {
@@ -59,14 +84,63 @@ func (c *RedisConfig) BuildConnectionString() (string, error) {
 
 // server configuration
 type ServerConfig struct {
-	Host string `env:"HOST" envDefault:"0.0.0.0"`
-	Port int    `env:"PORT" envDefault:"8080"`
+	AllowedOrigins []string `env:"ALLOWED_ORIGINS"`
+	Host           string   `env:"HOST" envDefault:"0.0.0.0"`
+	Port           int      `env:"PORT" envDefault:"8080"`
 }
 
 // combined settings
 type Settings struct {
+	APISettings APIConfig
+	Logging     LogConfig
 	RatesConfig RateAPIConfig `envPrefix:"APILAYER_EXCHANGE_RATES_API_KEY"`
 	Server      ServerConfig  `envPrefix:"SERVER_"`
+}
+
+// root logger
+var rootLogger *slog.Logger
+
+func createLogger(cfg LogConfig) *slog.Logger {
+	var logger *slog.Logger
+	var logLevel slog.Level
+	logParseError := logLevel.UnmarshalText([]byte(cfg.LogLevel))
+	if logParseError != nil {
+		logLevel = slog.LevelInfo
+	}
+
+	switch cfg.Style {
+	case ColouredLogStyle:
+		lvl, err := log.ParseLevel(cfg.LogLevel)
+		if err != nil {
+			lvl = log.InfoLevel
+		}
+		charmLogger := log.NewWithOptions(os.Stdout, log.Options{
+			ReportTimestamp: true,
+			ReportCaller:    true,
+			Level:           lvl,
+		})
+		logger = slog.New(charmLogger)
+	case JSONLogStyle:
+		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			AddSource: true,
+			Level:     logLevel,
+		}))
+	case PlainLogStyle:
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			AddSource: true,
+			Level:     logLevel,
+		}))
+	}
+
+	return logger
+}
+
+func GetRootLogger(cfg LogConfig) *slog.Logger {
+	onceLoad.Do(func() {
+		rootLogger = createLogger(cfg)
+	})
+
+	return rootLogger
 }
 
 // global settings instance

@@ -9,6 +9,11 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// exchange rates API configuration
+type RateAPIConfig struct {
+	APIKey string `env:"API_KEY"`
+}
+
 // server configuration
 type ServerConfig struct {
 	Host string `env:"HOST" envDefault:"0.0.0.0"`
@@ -17,7 +22,8 @@ type ServerConfig struct {
 
 // combined settings
 type Settings struct {
-	Server ServerConfig `envPrefix:"SERVER_"`
+	RatesConfig RateAPIConfig `envPrefix:"APILAYER_EXCHANGE_RATES_API_KEY"`
+	Server      ServerConfig  `envPrefix:"SERVER_"`
 }
 
 // global settings instance

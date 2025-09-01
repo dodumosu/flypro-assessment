@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 
 	"github.com/caarlos0/env/v11"
@@ -12,6 +13,48 @@ import (
 // exchange rates API configuration
 type RateAPIConfig struct {
 	APIKey string `env:"API_KEY"`
+}
+
+// Redis config
+type RedisConfig struct {
+	Host     string `env:"REDIS_HOST" envDefault:"localhost"`
+	Port     int    `env:"REDIS_PORT" envDefault:"6379"`
+	DB       int    `env:"REDIS_DB" envDefault:"0"`
+	User     string `env:"REDIS_USER" envDefault:""`
+	Password string `env:"REDIS_PASSWORD" envDefault:""`
+	UseSSL   *bool  `env:"REDIS_USE_SSL" envDefault:"false"`
+}
+
+func (c *RedisConfig) BuildConnectionString() (string, error) {
+	// Validate required fields
+	if c.Host == "" {
+		return "", fmt.Errorf("REDIS_HOST is required")
+	}
+
+	if c.Port <= 0 || c.Port > 65535 {
+		return "", fmt.Errorf("REDIS_PORT must be between 1 and 65535")
+	}
+
+	if c.DB < 0 {
+		return "", fmt.Errorf("REDIS_DB cannot be negative")
+	}
+
+	// Determine scheme based on SSL setting
+	scheme := "redis"
+	if c.UseSSL != nil && *c.UseSSL {
+		scheme = "rediss"
+	}
+
+	urlBuilder := NewURLBuilder()
+	urlBuilder.WithScheme(scheme).WithHost(c.Host).WithPort(c.Port)
+
+	if c.User != "" || c.Password != "" {
+		urlBuilder.WithCredentials(c.User, c.Password)
+	}
+
+	urlBuilder.WithPath(strconv.Itoa(c.DB))
+
+	return urlBuilder.Build()
 }
 
 // server configuration

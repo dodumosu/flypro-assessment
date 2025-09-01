@@ -30,7 +30,7 @@ func (u *UnixTime) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	u.Time = time.Unix(timestamp, 0)
+	u.Time = time.Unix(timestamp, 0) // Convert Unix timestamp to time.Time
 	return nil
 }
 
@@ -84,7 +84,7 @@ func (c *CurrencyRatesClient) GetCurrentRates() (map[string]float64, error) {
 
 func (c *CurrencyRatesClient) GetSymbols() (map[string]string, error) {
 	resp, err := c.client.R().SetHeader(
-		"apiKey", c.apiKey,
+		"apikey", c.apiKey,
 	).Get(c.symbolsURL)
 
 	if err != nil {

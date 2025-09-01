@@ -2,9 +2,10 @@ package services
 
 import (
 	"context"
-	"flypro-assessment/internal/utils"
 	"strings"
 	"time"
+
+	"flypro-assessment/internal/utils"
 )
 
 type CurrencyRateService interface {

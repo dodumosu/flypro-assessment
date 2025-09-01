@@ -2,9 +2,10 @@ package services
 
 import (
 	"context"
-	"flypro-assessment/internal/config"
 	"strconv"
 	"time"
+
+	"flypro-assessment/internal/config"
 
 	"github.com/redis/go-redis/v9"
 )

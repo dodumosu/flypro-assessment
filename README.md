@@ -18,3 +18,6 @@ The application requires the following to operate:
 - an [APILayer exchange rate](https://apilayer.com/marketplace/exchangerates_data-api) key
 
 Each of the above services/resources has associated settings.
+
+### database migrations
+Migrations use the [goose](https://github.com/pressly/goose) migration tool. The included makefile contains targets for managing migrations. There is a separate section of `.env-template` for migrations, because goose can read from the environment as well.

@@ -79,8 +79,6 @@ func main() {
 	settings := config.GetSettings()
 	rootLogger := config.GetRootLogger(settings.Logging)
 
-	rootLogger.Info("config", "config", settings)
-
 	apiServer, err := NewAPIServer(settings.Server, rootLogger)
 	routerHandler := handlers.NewRouteHandler(rootLogger)
 

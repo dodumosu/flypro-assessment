@@ -8,9 +8,9 @@ import (
 )
 
 func SetupMiddleware(router *gin.Engine, logger *slog.Logger, cfg config.Settings) {
+	SetupCORS(router, cfg.Server.AllowedOrigins)
 	cspMiddleware := CommonHeaders()
 	router.Use(cspMiddleware)
 	SetupRequestID(router)
 	SetupRequestLogging(router, logger)
-	SetupCORS(router, cfg.Server.AllowedOrigins)
 }

@@ -1,9 +1,20 @@
 # flypro-assessment
 This application is for the FlyPro assessment.
 
+### configuration
 The application is configured using environment variables. The file
 `.env-template` lists the environment variables required for
-setting up the application.
+setting up the application. This file should be used as a guide to
+setting up the required environment variables. If there is a `.env`
+file present, the application will attempt to read from it.
 
 One setting of note is SERVER_ALLOWED_ORIGINS. It is *required*. The app
 will throw a fit and panic if it is not set.
+
+### dependency services
+The application requires the following to operate:
+- a PostgreSQL server and database
+- a Redis (or Redis-compatible equivalent like Dragonfly/Valkey) server
+- an [APILayer exchange rate](https://apilayer.com/marketplace/exchangerates_data-api) key
+
+Each of the above services/resources has associated settings.

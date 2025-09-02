@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/caarlos0/env/v11"
 	"github.com/charmbracelet/log"
@@ -19,6 +20,42 @@ type APIConfig struct {
 	ListSize int `env:"API_LIST_SIZE" envDefault:"50"`
 	// version string for OpenAPI docs
 	Version string `env:"API_VERSION" envDefault:"1.0.0"`
+}
+
+type DatabaseConfig struct {
+	DSN             string        `env:"DATABASE_URL"`
+	Host            string        `env:"DB_HOST" envDefault:"localhost"`
+	Port            int           `env:"DB_PORT" envDefault:"5432"`
+	User            string        `env:"DB_USER" envDefault:"user"`
+	Password        string        `env:"DB_PASSWORD" envDefault:"password"`
+	DBName          string        `env:"DB_NAME" envDefault:"flypro-demo"`
+	SSLMode         string        `env:"DB_SSLMODE" envDefault:"disable"`
+	TimeZone        string        `env:"DB_TIMEZONE" envDefault:"Africa/Lagos"`
+	MaxOpenConns    int32         `env:"DB_MAX_OPEN_CONNS" envDefault:"25"`
+	MaxIdleConns    int32         `env:"DB_MAX_IDLE_CONNS" envDefault:"5"`
+	ConnMaxIdleTime time.Duration `env:"DB_CONN_MAX_IDLE_TIME" envDefault:"5m"`
+	ConnMaxLifetime time.Duration `env:"DB_CONN_MAX_LIFETIME" envDefault:"1h"`
+}
+
+func (c *DatabaseConfig) BuildDSN() (string, error) {
+	if c.DSN != "" {
+		return c.DSN, nil
+	}
+
+	urlBuilder := NewURLBuilder()
+	urlBuilder.WithScheme("postgresql").WithHost(c.Host)
+	if c.Port != 0 {
+		urlBuilder.WithPort(c.Port)
+	}
+	if c.User != "" {
+		urlBuilder.WithCredentials(c.User, c.Password)
+	}
+	urlBuilder.WithPath(c.DBName)
+	if c.SSLMode != "" {
+		urlBuilder.WithQuery("sslmode", c.SSLMode)
+	}
+
+	return urlBuilder.Build()
 }
 
 type LogStyle string
@@ -37,7 +74,7 @@ type LogConfig struct {
 
 // exchange rates API configuration
 type RateAPIConfig struct {
-	APIKey string `env:"API_KEY"`
+	APIKey string `env:"APILAYER_EXCHANGE_RATES_API_KEY"`
 }
 
 // Redis config
@@ -92,9 +129,10 @@ type ServerConfig struct {
 // combined settings
 type Settings struct {
 	APISettings APIConfig
+	Database    DatabaseConfig
 	Logging     LogConfig
-	RatesConfig RateAPIConfig `envPrefix:"APILAYER_EXCHANGE_RATES_API_KEY"`
-	Server      ServerConfig  `envPrefix:"SERVER_"`
+	RatesConfig RateAPIConfig
+	Server      ServerConfig `envPrefix:"SERVER_"`
 }
 
 // root logger

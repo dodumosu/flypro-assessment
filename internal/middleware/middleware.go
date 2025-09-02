@@ -1,8 +1,9 @@
 package middleware
 
 import (
-	"flypro-assessment/internal/config"
 	"log/slog"
+
+	"flypro-assessment/internal/config"
 
 	"github.com/gin-gonic/gin"
 )

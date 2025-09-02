@@ -79,11 +79,14 @@ func main() {
 	settings := config.GetSettings()
 	rootLogger := config.GetRootLogger(settings.Logging)
 
+	rootLogger.Info("config", "config", settings)
+
 	apiServer, err := NewAPIServer(settings.Server, rootLogger)
 	routerHandler := handlers.NewRouteHandler(rootLogger)
 
 	// TODO: would it be better to inject it to server creation?
-	apiServer.SetupHandler(routerHandler.SetupRoutes())
+	router := routerHandler.SetupRoutes()
+	apiServer.SetupHandler(router)
 
 	if err != nil {
 		panic(err)

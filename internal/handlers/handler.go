@@ -4,6 +4,7 @@ import (
 	"context"
 	"flypro-assessment/internal/config"
 	"flypro-assessment/internal/dto"
+	"flypro-assessment/internal/middleware"
 	"log/slog"
 	"net/http"
 
@@ -34,7 +35,11 @@ func (r *RouteHandler) healthCheck(ctx context.Context, input *struct{}) (*dto.H
 
 func (r *RouteHandler) SetupRoutes() http.Handler {
 	router := gin.New()
+
 	settings := config.GetSettings()
+
+	// set up middleware
+	middleware.SetupMiddleware(router, r.logger, settings)
 
 	docsConfig := huma.DefaultConfig(settings.APISettings.Description, settings.APISettings.Version)
 	docsConfig.DocsPath = DocsPath

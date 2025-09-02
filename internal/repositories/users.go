@@ -45,7 +45,7 @@ func (u userRepository) Create(ctx context.Context, instance *models.User) (*mod
 		}
 	}
 
-	return u.GetByEmail(ctx, instance.Email)
+	return instance, nil
 }
 
 func (u userRepository) Get(ctx context.Context, id int) (*models.User, error) {

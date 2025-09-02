@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -39,7 +40,8 @@ func NewRedisCache(cfg config.RedisConfig) (*RedisCache, error) {
 }
 
 func (r *RedisCache) GetSymbol(ctx context.Context, key string) (string, error) {
-	result := r.client.Get(ctx, key)
+	symbolKey := fmt.Sprintf("symbol:%s", key)
+	result := r.client.Get(ctx, symbolKey)
 	if err := result.Err(); err != nil {
 		if err == redis.Nil {
 			// Key does not exist
@@ -52,11 +54,13 @@ func (r *RedisCache) GetSymbol(ctx context.Context, key string) (string, error) 
 }
 
 func (r *RedisCache) SetSymbol(ctx context.Context, key string, value string, lifetime time.Duration) error {
-	return r.client.Set(ctx, key, value, lifetime).Err()
+	symbolKey := fmt.Sprintf("symbol:%s", key)
+	return r.client.Set(ctx, symbolKey, value, lifetime).Err()
 }
 
 func (r *RedisCache) GetUSDRate(ctx context.Context, key string) (float64, error) {
-	result := r.client.Get(ctx, key)
+	rateKey := fmt.Sprintf("rate:%s", key)
+	result := r.client.Get(ctx, rateKey)
 	if err := result.Err(); err != nil {
 		if err == redis.Nil {
 			// Key does not exist
@@ -76,5 +80,10 @@ func (r *RedisCache) GetUSDRate(ctx context.Context, key string) (float64, error
 }
 
 func (r *RedisCache) SetUSDRate(ctx context.Context, key string, value float64, lifetime time.Duration) error {
-	return r.client.Set(ctx, key, strconv.FormatFloat(value, 'f', -1, 64), lifetime).Err()
+	rateKey := fmt.Sprintf("rate:%s", key)
+	return r.client.Set(ctx, rateKey, strconv.FormatFloat(value, 'f', -1, 64), lifetime).Err()
+}
+
+func (r *RedisCache) Close() {
+	r.client.Conn().Close()
 }

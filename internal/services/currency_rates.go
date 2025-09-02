@@ -11,6 +11,7 @@ import (
 type CurrencyRateService interface {
 	GetUSDRate(ctx context.Context, symbol string) (float64, error)
 	LookupSymbol(ctx context.Context, symbol string) (bool, error)
+	LoadRates(ctx context.Context) error
 }
 
 type currencyRateService struct {
@@ -66,12 +67,45 @@ func (c *currencyRateService) GetUSDRate(ctx context.Context, symbol string) (fl
 		return 0, err
 	}
 
+	if rate == 0 {
+		err = c.LoadRates(ctx)
+		if err != nil {
+			return 0, err
+		}
+
+		// retry
+		rate, err = c.cache.GetUSDRate(ctx, symbol)
+		if err != nil {
+			return 0, err
+		}
+	}
+
 	return rate, nil
 }
 
-func NewCurrencyRatesService(cache *Cache, client *utils.CurrencyRatesClient) CurrencyRateService {
+func (c *currencyRateService) LoadRates(ctx context.Context) error {
+	rates, err := c.client.GetCurrentRates()
+	if err != nil {
+		return err
+	}
+
+	for symbol, rate := range rates {
+		err = c.cache.SetSymbol(ctx, symbol, symbol, 24*time.Hour)
+		if err != nil {
+			return err
+		}
+		err = c.cache.SetUSDRate(ctx, symbol, rate, 6*time.Hour)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func NewCurrencyRatesService(cache Cache, client *utils.CurrencyRatesClient) CurrencyRateService {
 	return &currencyRateService{
-		cache:  *cache,
+		cache:  cache,
 		client: client,
 	}
 }

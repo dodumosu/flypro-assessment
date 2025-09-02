@@ -13,6 +13,8 @@ import (
 
 	"flypro-assessment/internal/config"
 	"flypro-assessment/internal/handlers"
+	"flypro-assessment/internal/services"
+	"flypro-assessment/internal/utils"
 
 	_ "github.com/joho/godotenv/autoload"
 )
@@ -36,7 +38,7 @@ func (s *APIServer) cleanup() {
 	s.logger.Info("cleaning up resources")
 }
 
-func (s *APIServer) Start() {
+func (s *APIServer) Start(shutdown <-chan os.Signal, done chan<- struct{}) {
 	address := net.JoinHostPort(s.configuration.Host, strconv.Itoa(s.configuration.Port))
 
 	s.server.Addr = address
@@ -48,14 +50,12 @@ func (s *APIServer) Start() {
 		serverErrors <- s.server.ListenAndServe()
 	}()
 
-	shutdown := make(chan os.Signal, 1)
-	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
-
 	select {
 	case err := <-serverErrors:
 		s.logger.Error("Server error", "error", err)
 		os.Exit(1)
 	case sig := <-shutdown:
+		close(done) // Signal ticker to stop
 		s.logger.Info("Received signal, starting graceful shutdown", "signal", sig)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -79,16 +79,59 @@ func main() {
 	settings := config.GetSettings()
 	rootLogger := config.GetRootLogger(settings.Logging)
 
+	// create rates service
+	cache, err := services.NewRedisCache(settings.Redis)
+	if err != nil {
+		panic(err)
+	}
+	defer cache.Close()
+	ratesClient := utils.NewCurrencyRatesClient(settings.RatesConfig)
+	ratesService := services.NewCurrencyRatesService(cache, ratesClient)
+
+	// Load rates on startup
+	ctx := context.Background()
+	if err := ratesService.LoadRates(ctx); err != nil {
+		rootLogger.Error("Failed to load initial currency rates", "error", err)
+	} else {
+		rootLogger.Info("Initial currency rates loaded successfully")
+	}
+
 	apiServer, err := NewAPIServer(settings.Server, rootLogger)
+	if err != nil {
+		panic(err)
+	}
+
 	routerHandler := handlers.NewRouteHandler(rootLogger)
 
 	// TODO: would it be better to inject it to server creation?
 	router := routerHandler.SetupRoutes()
 	apiServer.SetupHandler(router)
 
-	if err != nil {
-		panic(err)
-	}
+	// Set up rates loading ticker (every 6 hours)
+	ticker := time.NewTicker(6 * time.Hour)
 
-	apiServer.Start()
+	shutdown := make(chan os.Signal, 1)
+	done := make(chan struct{})
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
+	// Start ticker goroutine
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				ctx := context.Background()
+				if err := ratesService.LoadRates(ctx); err != nil {
+					rootLogger.Error("Failed to load currency rates", "error", err)
+				} else {
+					rootLogger.Info("Currency rates refreshed successfully")
+				}
+			case <-done:
+				rootLogger.Info("Stopping rates ticker")
+				return
+			}
+		}
+	}()
+
+	apiServer.Start(shutdown, done)
 }

@@ -131,6 +131,7 @@ type Settings struct {
 	APISettings APIConfig
 	Database    DatabaseConfig
 	Logging     LogConfig
+	Redis       RedisConfig
 	RatesConfig RateAPIConfig
 	Server      ServerConfig `envPrefix:"SERVER_"`
 }
